@@ -14,10 +14,10 @@ any [PRAW](http://praw.readthedocs.io/en/latest/) client application.
 
 # The problem #
 
-[Here](https://github.com/leviroth/bigbenbot/blob/master/bot.py) is a simple
-Reddit bot. It monitors a subreddit (/r/BigBenBot) for comments that start
-with the word `!time`, and posts the current time in response. The connection to
-Reddit is provided by the excellent PRAW library.
+[Here](https://github.com/leviroth/bigbenbot/blob/d746271c79a7e82ea6e908188a4f363caccc4b05/bot.py) is
+a simple Reddit bot. It monitors a subreddit (/r/BigBenBot) for comments that
+start with the word `!time`, and posts the current time in response. The
+connection to Reddit is provided by the excellent PRAW library.
 
 The bot will reply to any (1) non-deleted (2) top-level comment that (3) begins
 with the word `!time`. We implement these rules with the following method:
