@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Testing Reddit bots with Betamax [draft]
+title: Testing Reddit bots with Betamax
 ---
 
 When testing code that relies on a network API, such as Reddit's, network IO
@@ -11,6 +11,9 @@ speeds up integration tests by recording and reusing HTTP interactions. Second,
 through the running example of testing a Reddit bot, it provides boilerplate
 code that can be used to get started with Betamax in
 any [PRAW](http://praw.readthedocs.io/en/latest/) client application.
+
+Source code used in this post can be
+found [on GitHub ](https://github.com/leviroth/bigbenbot).
 
 # The problem #
 
@@ -154,7 +157,7 @@ tests. We do this in two steps. First, we add a `recorder` to our
 `IntegrationTest` class and point it toward the `requests.Session` instance that
 underlies PRAW's network code. We also require this `Session` to use the
 `identity` encoding, which ensures that the traffic we record is uncompressed
-(hence, human-readable).
+and, hence, human-readable.
 
 ```python
 http = self.reddit._core._requestor._http
@@ -180,6 +183,7 @@ Now, if we run our tests once, the requests are recorded inside the `cassettes/`
 directory. And subsequent runs are much faster:
 
 ```
+(bigbenbot) PS C:\Users\levim\src\bigbenbot> pytest
 ============================= test session starts =============================
 platform win32 -- Python 3.6.1, pytest-3.0.7, py-1.4.33, pluggy-0.4.0
 rootdir: C:\Users\levim\src\bigbenbot, inifile:
@@ -225,9 +229,11 @@ However, we have a security problem. Take a look at the first few lines of
 Not a great password, to be sure. But even if my bot had a strong password, it
 wouldn't do much good if it were plastered all over GitHub. Likewise, the
 cassettes record my bot's client ID, client secret, and the temporary access
-token that it gets in response.
+token that it gets in response. In the following snippet, the first block
+contains a base64 encoding of the client ID and client secret, and the second
+block contains an unmodified copy of the temporary access token that's used on
+subsequent requests:
 
-<!-- This is the client info in base64 -->
 ```json
 {
 "Authorization": [
@@ -243,9 +249,11 @@ token that it gets in response.
 A first line of defense is to use a separate account for testing. But we'd still
 not like to have these accounts be susceptible to hijacking.
 
-To protect sensitive information, we can add a *placeholder* that will replace a
-given string when it's found in a request. For example, we can add a placeholder
-that replaces a client ID like `6LD1tijnzfq3_A` with a mask like `<CLIENT_ID>`.
+To protect sensitive information, Betamax can add a *placeholder* that will
+replace a given string when it's found in a request. For example, we can add a
+placeholder that replaces a client ID like `6LD1tijnzfq3_A` with a mask like
+`<CLIENT_ID>`. In the next three subsections, we'll take a look at three
+different techniques for assigning placeholders.
 
 ## Simple string replacement ##
 
@@ -305,7 +313,7 @@ from urllib.parse import quote_plus
 placeholders['password'] = quote_plus(placeholders['password'])
 ```
 
-We also haven't tackled the following block from earlier:
+We also need to tackle the client information:
 
 ```json
 {
@@ -315,8 +323,7 @@ We also haven't tackled the following block from earlier:
 }
 ```
 
-You can hardly tell just by looking at it, but this is a base-64 encoding of the
-client ID and secret. Just as we filtered the password by deriving its
+Just as we filtered the password by deriving its
 URL-escaped form, we can filter this string by deriving it from the client ID
 and secret:
 
@@ -345,12 +352,13 @@ the text to be replaced before we send a request. That strategy won't work if
 the data we'd like to filter is only generated upon sending a request. In our
 running example, we'd like to filter our access token, but we don't know what
 that is until Reddit sends it to us. So, we instead have to add a filter *after*
-the request is performed but *before* it's recorded to disk. This is made
-possible by the Betamax
+the request is performed but *before* it's recorded to the cassette. This is
+made possible by the Betamax
 configuration's
 [`before_record` method](http://betamax.readthedocs.io/en/latest/api.html#betamax.configure.Configuration.before_record).
 This method takes a callback function that receives each interaction and
-cassette before recording, and can make changes as needed. Here's how it's done:
+cassette before recording, and can make changes to the cassette configuration as
+needed. Here's how PRAW's integration tests solve this problem:
 
 ```python
 import json
@@ -361,6 +369,8 @@ def filter_access_token(interaction, current_cassette):
     """Add Betamax placeholder to filter access token."""
     request_uri = interaction.data['request']['uri']
     response = interaction.data['response']
+
+    # We only care about requests that generate an access token.
     if ('api/v1/access_token' not in request_uri or
             response['status']['code'] != 200):
         return
@@ -369,6 +379,9 @@ def filter_access_token(interaction, current_cassette):
         token = json.loads(body)['access_token']
     except (KeyError, TypeError, ValueError):
         return
+
+    # If we succeeded in finding the token, add it to the placeholders for this
+    # cassette.
     current_cassette.placeholders.append(
             betamax.cassette.cassette.Placeholder(
                 placeholder='<ACCESS_TOKEN>', replace=token))
@@ -507,6 +520,18 @@ Reddit's servers.
     provided as an environment variable and filtered out of cassettes, which
     allows contributors to run tests without needing access to any particular
     subreddit.
+    
+# Credits and acknowledgements #
+
+This post makes use of source code from PRAW, which is copyright 2016 Bryce Boe
+and available under
+the
+[BSD license](https://github.com/praw-dev/praw/blob/420602c07477f5f22466e28a7189888d09c77ce3/LICENSE.txt).
+Additionally, I have to thank Bryce for explaining PRAW's tests' approach to
+`time.sleep` while I was writing this post. Finally, thanks to all the
+contributors to PRAW and to Betamax --- not only for producing two fantastic
+open-source projects, but for introducing me to many of the techniques that I've
+described here.
 
 [^1]: One to authenticate, and one to fetch a comment.
 

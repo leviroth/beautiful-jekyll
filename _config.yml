@@ -42,7 +42,7 @@ author:
   email: "levimroth@gmail.com"
   # facebook: yourname  # eg. daattali
   github: leviroth    # eg. daattali
-  twitter: NotALeviroth   # eg. daattali
+  # twitter: NotALeviroth   # eg. daattali
   # reddit: yourname    # eg. daattali
   # google-plus: +yourname   # eg. +DeanAttali or 109424658772469020925
   # linkedin: yourname  # eg. daattali
@@ -56,10 +56,10 @@ author:
 
 # Select which links to show in the footer
 footer-links-active:
-  rss: false
+  rss: true
   # facebook: true
   email: true
-  twitter: true
+  twitter: false
   google-plus: false
   github: true
   reddit: false
